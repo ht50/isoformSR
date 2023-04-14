@@ -25,6 +25,7 @@ isoformSR_calc	isoforms by gsp from split reads in the bam
   --annpath, -a Annotation files path
   --tmppath, -t Tmp output path
   --gene, -g	Gene
+  --etx, -e	Extra transcripts
   --gtf, -gtf	GTF of gsp probes for Archer assays
   --bamx, -bx   bam suffix
   --dets, -d	Save dets
@@ -44,6 +45,7 @@ GetOptions(
         "annpath|a=s" => \(my $annpath = "helper"),
         "tmppath|t=s" => \(my $tmppath = "out_tmp"),
 	"gene|g=s" => \(my $genetarget = "IKZF1"),
+        "etx|e=s" => \(my $etx = ""),
 	"gtf|gtf=s" => \(my $gtf = ""),
 	"bamx|bx=s" => \(my $bamsuffix = ".bam" ),
         "dets|d=s" => \(my $dets = "none" ),  # can be "all", "split", or "nonsplit"
@@ -172,6 +174,33 @@ while(<FI>) {
     }	
 }
 close(FI);
+
+if( $etx ne "" ) {
+  open(FI, $etx ) or die $!;
+  while(<FI>) {
+    chomp;
+    @line_cells = split(/\t/, $_);
+    @sub_cells = split( /\./, $line_cells[1] );
+    my $tt = $sub_cells[0]; $tt =~ s/\_//;
+    $gene = $line_cells[12];
+    if( exists( $geneStarts{$gene} ) ) {
+      if( $geneChrs{$gene} ne "*" && $geneChrs{$gene} ne $line_cells[2] ) { print( "Chromosome change for " . $gene . "\n" ); exit(1); }
+      my $offset = 1; my $sign = 1;
+      if( $line_cells[3] eq "-" ) { $offset = -$line_cells[8]; $sign = -1; }
+      @a = split( /,/, $line_cells[9] );
+      for( my $i=0; $i<scalar(@a); $i++ ) {
+          $startsByExon{$gene}{$tt}{"Exon" . (($i+$offset) * $sign)} = $a[$i]+1;
+          $exonStarts{$gene}{$a[$i]+1}{$tt} = ($i+$offset) * $sign;
+      }
+      @a = split( /,/, $line_cells[10] );
+      for( my $i=0; $i<scalar(@a); $i++ ) {
+          $endsByExon{$gene}{$tt}{"Exon" . (($i+$offset) * $sign)} = $a[$i];
+          $exonEnds{$gene}{$a[$i]}{$tt} = ($i+$offset) * $sign;
+      }
+    }
+  }
+  close(FI);
+}
 
 foreach $gene ( @genes ) {
     $geneRegions{$gene} = $geneChrs{$gene} . ":" . ( $geneStarts{$gene} - 1e6 ) . "-" . ( $geneEnds{$gene} + 1e6 );
@@ -945,9 +974,13 @@ foreach my $case ( sort @casefiles ) {
 	}
 	if( exists( $bkptnodedup{$gene} ) ) {
 	    foreach $isokey ( sort keys %{$bkptnodedup{$gene}} ) {
-		if( $bkptnodedup{$gene}{$isokey} >= $cutoff || exists( $bksKeep{$gene ."_" . $isokey} ) ) {
-		  @sub_cells = split(/_/, $isokey);
-		  $bkL = $sub_cells[0]; $bkR = $sub_cells[1];
+	      @sub_cells = split(/_/, $isokey);
+	      $bkL = $sub_cells[0]; $bkR = $sub_cells[1];
+              if( ($bkL < $geneEnds{$gene} && $bkR > $geneEnds{$gene}) ||
+                  ($bkL < $geneStarts{$gene} && $bkR > $geneStarts{$gene}) ||
+                  ($bkptnodedup{$gene}{$isokey} >= $cutoff &&
+                    (($bkL > $geneStarts{$gene} && $bkL < $geneEnds{$gene}) ||
+                     ($bkR > $geneStarts{$gene} && $bkR < $geneEnds{$gene}))) ) {
 	          $bks{$isokey}{L} = $bkL; $bks{$isokey}{R} = $bkR;
 		  print FO $newrunkey . "\t" . $gene . "_" . $isokey . "\t" . $bkptnodedup{$gene}{$isokey}; 
 		  for( my $j=0; $j<scalar(@gspkeys); $j++ ) {
