@@ -123,6 +123,9 @@ close FI;
 if( $genetarget eq "KMT2A" ) { $transcripts{"KMT2A"} = "NM005933"; }
 if( $genetarget eq "ERG" ) { $transcripts{"ERG"} = "NM001136154"; }
 
+if( not -d $tmppath ) { make_path $tmppath or die "Failed to create path: $tmppath"; }
+if( not -d "${annpath}/tx_stored" ) { make_path "${annpath}/tx_stored" or die "Failed to create path: ${annpath}/tx_stored"; }
+
 if( not -e "${annpath}/tx_stored/tx_${genetarget}.txt" ) {
   if ( system( "awk -v gene=$genetarget -F '\t' '{ if(\$13 == gene) { print } }' ${annpath}/tx_ncbiRefSeq_hg19_20220316.txt > ${annpath}/tx_stored/tx_${genetarget}.txt" ) ) { die "Failed awk extract from transcript file. Exiting..."; }
   if( system( "awk -v gene=$genetarget -F '\t' '{ if(\$13 == gene) { print } }' ${annpath}/tx_extra.txt >> ${annpath}/tx_stored/tx_${genetarget}.txt" ) ) { die "Failed awk extract from transcript file. Exiting..."; }
