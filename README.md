@@ -1,2 +1,2 @@
 # isoformSR
-Basic usage: perl isoformSR.pl -b bamfile -g gene
+Basic usage: perl isoformSR_calc.pl -b bamfile -g gene
